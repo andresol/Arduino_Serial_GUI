@@ -4,11 +4,46 @@
 #include <stdlib.h>
 #include <string.h>   // String function definitions
 #include <time.h>
+#include <getopt.h>
 
 #include "mainGUI.h"
 #include "arduino-serial-lib.h"
 
+//#define DEBUG
+
 static int fd = -1;
+char* device = NULL;
+
+void usagePrint() {
+	printf("Usage: arduino-serial -b <bps> -p <serialport> [OPTIONS]\n"
+			"\n"
+			"Options:\n"
+			"  -h, --help                 Print this help message\n"
+			"  -b, --baud=baudrate        Baudrate (bps) of Arduino (default 9600)\n"
+			"  -n, --nongui               Start in console mode\n"
+			"  -p, --port=serialport      Serial port Arduino is connected to\n"
+			"  -q  --quiet                Don't print out as much info\n"
+			"\n"
+			"\n");
+	exit(EXIT_SUCCESS);
+}
+
+gint connectSerial() {
+#ifdef DEBUG
+	printf("Connecting to device %s\n", DEFAULT_DEVICE);
+#endif
+	if (fd >= 0) {
+		return setupSerial(device);
+	}
+	return -1;
+}
+
+gint disconnectSerial() {
+	if (fd >= 0) {
+		serialport_close(fd);
+	}
+	return -1;
+}
 
 int update_statusbar(GtkTextBuffer *buffer, GtkStatusbar  *statusbar) {
 	gchar *msg;
@@ -31,15 +66,59 @@ int update_statusbar(GtkTextBuffer *buffer, GtkStatusbar  *statusbar) {
 	return 0;
 }
 
+
 static void mark_set_callback(GtkTextBuffer *buffer,
 		const GtkTextIter *new_location, GtkTextMark *mark,
 		gpointer data) {
 	update_statusbar(buffer, GTK_STATUSBAR(data));
 }
 
-
 int main( int argc, char *argv[]){
 
+	/* parse options */
+	int option_index = 0, opt;
+
+	int gui = 1;
+	static struct option loptions[] = {
+			{"help",       no_argument,       0, 'h'},
+			{"port",       required_argument, 0, 'p'},
+			{"nongui",     required_argument, 0, 'n'},
+			{"quiet",      no_argument,       0, 'q'},
+			{0,         0,                 0, 0}
+	};
+
+	do {
+		opt = getopt_long (argc, argv, "hp:nq",
+				loptions, &option_index);
+
+		switch (opt) {
+		case '0':
+			break;
+		case 'p':
+			device = strdup(optarg);
+			break;
+		case 'n':
+			gui = 0;
+			break;
+		case 'h':
+			usagePrint();
+			break;
+			//default:
+		}
+	} while(opt != -1);
+
+	if (device == NULL) {
+		device = strdup(DEFAULT_DEVICE);
+	}
+	if (gui) {
+		return doGUI(argc, argv);
+	} else {
+		return doConsole(argc, argv);
+	}
+	return 0;
+}
+
+int doGUI( int argc, char *argv[]) {
 	GtkWidget *window;
 	GtkWidget *vbox;
 
@@ -51,13 +130,12 @@ int main( int argc, char *argv[]){
 	GtkToolItem *properties;
 	GtkToolItem *connect;
 	GtkTextBuffer *buffer;
-
 	gtk_init(&argc, &argv);
 
 	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
 	gtk_window_set_default_size(GTK_WINDOW(window), WINDOW_WIDTH, WINDOW_HEIGHT);
-	gtk_window_set_title(GTK_WINDOW(window), "Arduino Serial Monitor");
+	gtk_window_set_title(GTK_WINDOW(window), MAIN_GUI_TITLE);
 
 	vbox = gtk_vbox_new(FALSE, 0);
 	gtk_container_add(GTK_CONTAINER(window), vbox);
@@ -90,6 +168,9 @@ int main( int argc, char *argv[]){
 	g_signal_connect(G_OBJECT(exit), "clicked",
 			G_CALLBACK(gtk_main_quit), NULL);
 
+	g_signal_connect(G_OBJECT(connect), "clicked",
+			G_CALLBACK(connectSerial), NULL);
+
 	g_signal_connect(buffer, "changed",
 			G_CALLBACK(update_statusbar), statusbar);
 
@@ -99,7 +180,7 @@ int main( int argc, char *argv[]){
 	g_signal_connect_swapped(G_OBJECT(window), "destroy",
 			G_CALLBACK(gtk_main_quit), NULL);
 
-	fd = setupSerial("/dev/ttyUSB0");
+	fd = setupSerial(device);
 
 	g_timeout_add(1000, (GSourceFunc) time_handler, (gpointer) view);
 
@@ -108,8 +189,10 @@ int main( int argc, char *argv[]){
 	update_statusbar(buffer, GTK_STATUSBAR (statusbar));
 
 	gtk_main();
+}
 
-	return 0;
+int doConsole(int argc, char *argv[]) {
+
 }
 
 void errorPrint(char* msg) {
