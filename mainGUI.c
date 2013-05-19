@@ -13,6 +13,7 @@
 
 static int fd = -1;
 char* device = NULL;
+static int run = 0;
 
 void usagePrint() {
 	printf("Usage: arduino-serial -b <bps> -p <serialport> [OPTIONS]\n"
@@ -99,6 +100,7 @@ int main( int argc, char *argv[]){
 			break;
 		case 'n':
 			gui = 0;
+			run = 1;
 			break;
 		case 'h':
 			usagePrint();
@@ -110,6 +112,9 @@ int main( int argc, char *argv[]){
 	if (device == NULL) {
 		device = strdup(DEFAULT_DEVICE);
 	}
+
+	fd = setupSerial(device);
+
 	if (gui) {
 		return doGUI(argc, argv);
 	} else {
@@ -118,7 +123,7 @@ int main( int argc, char *argv[]){
 	return 0;
 }
 
-int doGUI( int argc, char *argv[]) {
+int doGUI(int argc, char *argv[]) {
 	GtkWidget *window;
 	GtkWidget *vbox;
 
@@ -180,19 +185,28 @@ int doGUI( int argc, char *argv[]) {
 	g_signal_connect_swapped(G_OBJECT(window), "destroy",
 			G_CALLBACK(gtk_main_quit), NULL);
 
-	fd = setupSerial(device);
-
-	g_timeout_add(1000, (GSourceFunc) time_handler, (gpointer) view);
+	g_timeout_add(100, (GSourceFunc) time_handler, (gpointer) view);
 
 	gtk_widget_show_all(window);
 
 	update_statusbar(buffer, GTK_STATUSBAR (statusbar));
 
 	gtk_main();
+
+	return 0;
+}
+
+
+static void stop_log(int signal) {
+	run = 0;
 }
 
 int doConsole(int argc, char *argv[]) {
-
+	(void) signal (SIGINT, stop_log);
+	while(run) {
+		readFromSerialConsole();
+	}
+	return 0;
 }
 
 void errorPrint(char* msg) {
@@ -215,24 +229,46 @@ int readFromSerial(GtkWidget *view) {
 		gtkTextviewAppend(view, "Error opening device.\n");
 		return 0;
 	}
-	const int buf_max = 256;
-	char buf[buf_max];
-	char timeText[buf_max*2];
-	char eolchar = '\n';
-	gchar text[buf_max*2];
-	time_t now;
-	memset(buf,0,buf_max);
-	memset(timeText,0,buf_max*2);
-	memset(text,0,buf_max*2);
-	serialport_read_until(fd, buf, eolchar, buf_max, 5000);
-	now = time(NULL);
-	strftime(timeText, sizeof(timeText), "T:%Y-%m-%d %H:%M:%S ", localtime(&now));
-	strcat(timeText,buf);
-	strcpy(text,timeText);
-	if (buf[0] != '\0') {
+	gchar text[BUF_MAX*2];
+	memset(text,0,BUF_MAX*2);
+	getTextFromSerial(text);
+	if (text[0] != '\0') {
 		gtkTextviewAppend(view, text);
 	}
 	return 0;
+}
+
+int readFromSerialConsole(){
+	if (fd == -1) {
+		printf("Error opening device. Please check permission or device.\n");
+		return 0;
+	}
+	gchar text[BUF_MAX*2];
+	memset(text,0,BUF_MAX*2);
+	getTextFromSerial(text);
+	if (text[0] != '\0') {
+		printf("%s",text);
+	}
+	return 0;
+}
+
+void getTextFromSerial(gchar* text) {
+	char buf[BUF_MAX];
+	char timeText[BUF_MAX*2];
+	char eolchar = '\n';
+	memset(buf,0,BUF_MAX);
+	serialport_read_until(fd, buf, eolchar, BUF_MAX, 5000);
+#ifdef DEBUG
+	printf("Value from serial %s\n", buf);
+#endif
+	if (buf[0] != '\0' && buf[0] != '\n') {
+		time_t now;
+		memset(timeText,0,BUF_MAX*2);
+		now = time(NULL);
+		strftime(timeText, sizeof(timeText), "T:%Y-%m-%d %H:%M:%S ", localtime(&now));
+		strcat(timeText,buf);
+		strcpy(text,timeText);
+	}
 }
 
 void gtkTextviewAppend(GtkWidget *textview, gchar *text) {
