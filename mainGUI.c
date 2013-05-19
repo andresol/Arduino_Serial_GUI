@@ -8,7 +8,6 @@
 #include "mainGUI.h"
 #include "arduino-serial-lib.h"
 
-static int counter = 0;
 static int fd = -1;
 
 int update_statusbar(GtkTextBuffer *buffer, GtkStatusbar  *statusbar) {
@@ -49,6 +48,8 @@ int main( int argc, char *argv[]){
 	GtkWidget* scrolledwindow;
 	GtkWidget *statusbar;
 	GtkToolItem *exit;
+	GtkToolItem *properties;
+	GtkToolItem *connect;
 	GtkTextBuffer *buffer;
 
 	gtk_init(&argc, &argv);
@@ -66,6 +67,12 @@ int main( int argc, char *argv[]){
 
 	exit = gtk_tool_button_new_from_stock(GTK_STOCK_QUIT);
 	gtk_toolbar_insert(GTK_TOOLBAR(toolbar), exit, -1);
+
+	connect = gtk_tool_button_new_from_stock(GTK_STOCK_CONNECT);
+	gtk_toolbar_insert(GTK_TOOLBAR(toolbar), connect, -1);
+
+	properties = gtk_tool_button_new_from_stock(GTK_STOCK_PROPERTIES);
+	gtk_toolbar_insert(GTK_TOOLBAR(toolbar), properties, -1);
 
 	gtk_box_pack_start(GTK_BOX(vbox), toolbar, FALSE, FALSE, 5);
 
