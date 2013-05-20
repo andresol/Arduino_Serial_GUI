@@ -8,3 +8,5 @@ TODO:
 -Logging to file.
 
 Add `pkg-config --libs gtk+-2.0` as a BUILD variable.
+
+![Alt text](/Arduino Serial Monitor_001.png "Screenshot")
