@@ -13,7 +13,6 @@
 #define WINDOW_WIDTH 640
 #define WINDOW_HEIGHT 480
 #define DEFAULT_BAUDRATE 9600
-#define BUF_MAX 256
 static const char* DEFAULT_DEVICE = "/dev/ttyUSB0";
 static const char* MAIN_GUI_TITLE = "Arduino Serial Monitor";
 
@@ -21,8 +20,6 @@ void usagePrint(void);
 gint connectSerial(void);
 gint disconnectSerial(void);
 int setupSerial(char* port);
-int readFromSerialConsole();
-void getTextFromSerial(gchar* text);
 void errorPrint(char* msg);
 int readFromSerial(GtkWidget *view);
 void gtkTextviewAppend(GtkWidget *textview, gchar *text);

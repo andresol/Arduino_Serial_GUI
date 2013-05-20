@@ -14,6 +14,7 @@
 static int fd = -1;
 char* device = NULL;
 static int run = 0;
+GtkWidget *window; //parent window
 
 void usagePrint() {
 	printf("Usage: arduino-serial -b <bps> -p <serialport> [OPTIONS]\n"
@@ -123,8 +124,39 @@ int main( int argc, char *argv[]){
 	return 0;
 }
 
+
+int doProperties() {
+	GtkWidget *optionsWindow;
+	optionsWindow = gtk_dialog_new_with_buttons("Properties",GTK_WINDOW(window),GTK_DIALOG_DESTROY_WITH_PARENT,GTK_STOCK_SAVE,
+            GTK_RESPONSE_ACCEPT,
+            GTK_STOCK_CANCEL,
+            GTK_RESPONSE_REJECT,
+            NULL );
+	GtkWidget *vbox;
+	vbox = gtk_vbox_new(FALSE, 0);
+	gtk_container_add(GTK_CONTAINER(GTK_DIALOG(optionsWindow)->vbox), vbox);
+	gtk_window_set_modal(GTK_WINDOW(optionsWindow), TRUE);
+	gtk_window_set_keep_above(GTK_WINDOW(optionsWindow), TRUE);
+	GtkWidget* deviceLabel;
+	deviceLabel = gtk_label_new("Device");
+	gtk_box_pack_start(GTK_BOX(vbox),deviceLabel, FALSE, FALSE, 5);
+
+	GtkWidget *combo;
+	GList *items = NULL;
+
+	items = g_list_append (items, "/dev/ttyUSB0");
+	//items = g_list_append (items, "First Item");
+	combo = gtk_combo_new ();
+	gtk_combo_set_popdown_strings (GTK_COMBO (combo), items);
+	gtk_box_pack_start(GTK_BOX(vbox),combo, FALSE, FALSE, 5);
+	GtkWidget *timeSwitch;
+	timeSwitch = gtk_check_button_new_with_label("Display time");
+	gtk_box_pack_start(GTK_BOX(vbox),timeSwitch, FALSE, FALSE, 5);
+	gtk_widget_show_all(optionsWindow);
+	return 0;
+}
+
 int doGUI(int argc, char *argv[]) {
-	GtkWidget *window;
 	GtkWidget *vbox;
 
 	GtkWidget *toolbar;
@@ -176,6 +208,9 @@ int doGUI(int argc, char *argv[]) {
 	g_signal_connect(G_OBJECT(connect), "clicked",
 			G_CALLBACK(connectSerial), NULL);
 
+	g_signal_connect(G_OBJECT(properties), "clicked",
+			G_CALLBACK(doProperties), NULL);
+
 	g_signal_connect(buffer, "changed",
 			G_CALLBACK(update_statusbar), statusbar);
 
@@ -185,7 +220,7 @@ int doGUI(int argc, char *argv[]) {
 	g_signal_connect_swapped(G_OBJECT(window), "destroy",
 			G_CALLBACK(gtk_main_quit), NULL);
 
-	g_timeout_add(100, (GSourceFunc) time_handler, (gpointer) view);
+	g_timeout_add(300, (GSourceFunc) time_handler, (gpointer) view);
 
 	gtk_widget_show_all(window);
 
@@ -225,6 +260,7 @@ int setupSerial(char* port) {
 }
 
 int readFromSerial(GtkWidget *view) {
+	//TODO: use gdk_input_add ?
 	if (fd == -1) {
 		gtkTextviewAppend(view, "Error opening device.\n");
 		return 0;
